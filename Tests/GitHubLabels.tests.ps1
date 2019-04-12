@@ -7,8 +7,8 @@
 #>
 
 # This is common test code setup logic for all Pester test files
-$root = Split-Path -Parent (Split-Path -Parent $Script:MyInvocation.MyCommand.Path)
-. (Join-Path -Path $root -ChildPath 'Tests\Common.ps1')
+$moduleRootPath = Split-Path -Parent (Split-Path -Parent $Script:MyInvocation.MyCommand.Path)
+. (Join-Path -Path $moduleRootPath -ChildPath 'Tests\Common.ps1')
 
 try
 {

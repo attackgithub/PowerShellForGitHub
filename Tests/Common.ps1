@@ -1,9 +1,11 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-$root = Split-Path -Parent (Split-Path -Parent $Script:MyInvocation.MyCommand.Path)
-. (Join-Path -Path $root -ChildPath 'Tests\Config\Settings.ps1')
-Import-Module -Name (Join-Path -Path $root -ChildPath 'PowerShellForGitHub.psd1') -Force
+# Caches if the tests are actively configured with an access token.
+$script:accessTokenConfigured = $false
+
+# The path to a file storing the contents of the user's config file before tests got underway
+$script:originalConfigFile = $null
 
 function Initialize-CommonTestSetup
 {
@@ -31,6 +33,10 @@ function Initialize-CommonTestSetup
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingConvertToSecureStringWithPlainText", "", Justification="Needed to configure with the stored, encrypted string value in AppVeyor.")]
     param()
 
+    $moduleRootPath = Split-Path -Parent (Split-Path -Parent $Script:MyInvocation.MyCommand.Path)
+    . (Join-Path -Path $moduleRootPath -ChildPath 'Tests\Config\Settings.ps1')
+    Import-Module -Name (Join-Path -Path $moduleRootPath -ChildPath 'PowerShellForGitHub.psd1') -Force
+
     if (-not [string]::IsNullOrEmpty($env:ciAccessToken))
     {
         $secureString = $env:ciAccessToken | ConvertTo-SecureString -AsPlainText -Force
@@ -48,25 +54,25 @@ function Initialize-CommonTestSetup
             'and run tests on your machine first.')
         Write-Warning -Message ($message -join [Environment]::NewLine)
     }
+
+    $script:accessTokenConfigured = Test-GitHubAuthenticationConfigured
+    if (-not $script:accessTokenConfigured)
+    {
+        $message = @(
+            'GitHub API Token not defined, some of the tests will be skipped.',
+            '403 errors possible due to GitHub hourly limit for unauthenticated queries.')
+        Write-Warning -Message ($message -join [Environment]::NewLine)
+    }
+
+    # Backup the user's configuration before we begin, and ensure we're at a pure state before running
+    # the tests.  We'll restore it at the end.
+    $script:originalConfigFile = New-TemporaryFile
+
+    Backup-GitHubConfiguration -Path $script:originalConfigFile
+    Set-GitHubConfiguration -DisableTelemetry # Avoid the telemetry event from calling Reset-GitHubConfiguration
+    Reset-GitHubConfiguration
+    Set-GitHubConfiguration -DisableTelemetry # We don't want UT's to impact telemetry
+    Set-GitHubConfiguration -LogRequestBody # Make it easier to debug UT failures
 }
 
 Initialize-CommonTestSetup
-
-$script:accessTokenConfigured = Test-GitHubAuthenticationConfigured
-if (-not $script:accessTokenConfigured)
-{
-    $message = @(
-        'GitHub API Token not defined, some of the tests will be skipped.',
-        '403 errors possible due to GitHub hourly limit for unauthenticated queries.')
-    Write-Warning -Message ($message -join [Environment]::NewLine)
-}
-
-# Backup the user's configuration before we begin, and ensure we're at a pure state before running
-# the tests.  We'll restore it at the end.
-$script:originalConfigFile = New-TemporaryFile
-
-Backup-GitHubConfiguration -Path $script:originalConfigFile
-Set-GitHubConfiguration -DisableTelemetry # Avoid the telemetry event from calling Reset-GitHubConfiguration
-Reset-GitHubConfiguration
-Set-GitHubConfiguration -DisableTelemetry # We don't want UT's to impact telemetry
-Set-GitHubConfiguration -LogRequestBody # Make it easier to debug UT failures

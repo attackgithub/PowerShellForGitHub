@@ -10,18 +10,9 @@
 $root = Split-Path -Parent (Split-Path -Parent $Script:MyInvocation.MyCommand.Path)
 . (Join-Path -Path $root -ChildPath 'Tests\Common.ps1')
 
-# Backup the user's configuration before we begin, and ensure we're at a pure state before running
-# the tests.  We'll restore it at the end.
-$configFile = New-TemporaryFile
 try
 {
-    Backup-GitHubConfiguration -Path $configFile
-    Reset-GitHubConfiguration
-    Set-GitHubConfiguration -DisableTelemetry # We don't want UT's to impact telemetry
-    Set-GitHubConfiguration -LogRequestBody # Make it easier to debug UT failures
-
     # Define Script-scoped, readonly, hidden variables.
-
     @{
         defaultIssueTitle = "Test Title"
         defaultCommentBody = "This is a test body."
@@ -100,6 +91,10 @@ try
 }
 finally
 {
-    # Restore the user's configuration to its pre-test state
-    Restore-GitHubConfiguration -Path $configFile
+    if (Test-Path -Path $script:originalConfigFile -PathType Leaf)
+    {
+        # Restore the user's configuration to its pre-test state
+        Restore-GitHubConfiguration -Path $script:originalConfigFile
+        $script:originalConfigFile = $null
+    }
 }

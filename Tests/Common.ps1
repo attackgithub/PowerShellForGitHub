@@ -60,3 +60,13 @@ if (-not $script:accessTokenConfigured)
         '403 errors possible due to GitHub hourly limit for unauthenticated queries.')
     Write-Warning -Message ($message -join [Environment]::NewLine)
 }
+
+# Backup the user's configuration before we begin, and ensure we're at a pure state before running
+# the tests.  We'll restore it at the end.
+$script:originalConfigFile = New-TemporaryFile
+
+Backup-GitHubConfiguration -Path $script:originalConfigFile
+Set-GitHubConfiguration -DisableTelemetry # Avoid the telemetry event from calling Reset-GitHubConfiguration
+Reset-GitHubConfiguration
+Set-GitHubConfiguration -DisableTelemetry # We don't want UT's to impact telemetry
+Set-GitHubConfiguration -LogRequestBody # Make it easier to debug UT failures

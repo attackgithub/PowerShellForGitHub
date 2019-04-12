@@ -33,12 +33,12 @@ function Initialize-CommonTestSetup
 
     if (-not [string]::IsNullOrEmpty($env:ciAccessToken))
     {
-        $secureString = $env:avAccessToken | ConvertTo-SecureString -AsPlainText -Force
+        $secureString = $env:ciAccessToken | ConvertTo-SecureString -AsPlainText -Force
         $cred = New-Object System.Management.Automation.PSCredential "<username is ignored>", $secureString
         Set-GitHubAuthentication -Credential $cred
 
-        $script:ownerName = $env:avOwnerName
-        $script:organizationName = $env:avOrganizationName
+        $script:ownerName = $env:ciOwnerName
+        $script:organizationName = $env:ciOrganizationName
 
         $message = @(
             'This run is being executed in the Azure DevOps environment.',
